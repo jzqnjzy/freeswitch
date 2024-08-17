@@ -6836,6 +6836,11 @@ static void *SWITCH_THREAD_FUNC video_write_thread(switch_thread_t *thread, void
 				if (fr.img && smh->vid_params.d_width && smh->vid_params.d_height) {
 					switch_img_fit(&fr.img, smh->vid_params.d_width, smh->vid_params.d_height, SWITCH_FIT_SIZE);
 				}
+				if(fr.img){
+					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "jzq frame w:%d h:%d %dx%d\n", fr.img->d_w, fr.img->d_h, smh->vid_params.d_width, smh->vid_params.d_height);
+				}else{
+					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "jzq frame img is null %dx%d\n",  smh->vid_params.d_width, smh->vid_params.d_height);
+				}
 
 				switch_core_session_write_video_frame(session, &fr, SWITCH_IO_FLAG_FORCE, 0);
 
@@ -6852,7 +6857,7 @@ static void *SWITCH_THREAD_FUNC video_write_thread(switch_thread_t *thread, void
 	}
 
 	if (last_frame) {
-		int x = 0;
+		/*int x = 0;
 		switch_rgb_color_t bgcolor;
 
 		switch_color_set_rgb(&bgcolor, "#000000");
@@ -6864,7 +6869,7 @@ static void *SWITCH_THREAD_FUNC video_write_thread(switch_thread_t *thread, void
 			fr.timestamp = timer.samplecount;
 			fr.flags = SFF_USE_VIDEO_TIMESTAMP|SFF_RAW_RTP|SFF_RAW_RTP_PARSE_FRAME;
 			switch_core_session_write_video_frame(session, &fr, SWITCH_IO_FLAG_FORCE, 0);
-		}
+		}*/
 
 		switch_core_media_gen_key_frame(session);
 		switch_core_session_request_video_refresh(session);
@@ -7440,7 +7445,7 @@ static void *SWITCH_THREAD_FUNC video_helper_thread(switch_thread_t *thread, voi
 	switch_rtp_engine_t *v_engine = NULL;
 	const char *var;
 	int buflen = SWITCH_RTP_MAX_BUF_LEN;
-	int blank_enabled = 1;
+	int blank_enabled = 0;
 
 	session = mh->session;
 	
@@ -7462,9 +7467,11 @@ static void *SWITCH_THREAD_FUNC video_helper_thread(switch_thread_t *thread, voi
 	switch_core_autobind_cpu();
 
 	if ((var = switch_channel_get_variable(session->channel, "core_video_blank_image"))) {
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "jzq core_video_blank_image:%s\n", var);
 		if (switch_false(var)) {
 			blank_enabled = 0;
 		} else {
+            blank_enabled = 1;
 			blank_img = switch_img_read_png(var, SWITCH_IMG_FMT_I420);
 		}
 	}
@@ -7573,6 +7580,7 @@ static void *SWITCH_THREAD_FUNC video_helper_thread(switch_thread_t *thread, voi
 		}
 
 		if (send_blank) {
+			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "jzq send_blank blank_enabled:%d read_frame:%p blank_img:%p\n", blank_enabled, (void *)read_frame, (void *)blank_img);
 			if (read_frame && (switch_channel_test_flag(channel, CF_VIDEO_ECHO))) {
 				switch_core_session_write_video_frame(session, read_frame, SWITCH_IO_FLAG_NONE, 0);
 			} else if (blank_img) {
@@ -14718,6 +14726,12 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_write_video_frame(switch_cor
 		return SWITCH_STATUS_INUSE;
 	}
 
+	if(img){
+		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "jzq img w:%d h:%d\n", img->d_w, img->d_h);
+	}else{
+		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "jzq img is null 2 \n");
+	}
+
 	v_engine = &smh->engines[SWITCH_MEDIA_TYPE_VIDEO];
 	if (v_engine->thread_write_lock && v_engine->thread_write_lock != switch_thread_self()) {
 		switch_goto_status(SWITCH_STATUS_SUCCESS, done);
@@ -14752,6 +14766,8 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_write_video_frame(switch_cor
 		switch_vid_params_t vid_params = { 0 };
 
 		switch_core_media_get_vid_params(session, &vid_params);
+		
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq vid_params w:%d h:%d \n", vid_params.width, vid_params.height);
 
 		if (vid_params.width && vid_params.height && ((vid_params.width != img->d_w) || (vid_params.height != img->d_h))) {
 			switch_img_letterbox(img, &dup_img, vid_params.width, vid_params.height, "#000000f");
@@ -14762,6 +14778,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_write_video_frame(switch_cor
 	}
 
 	if (!switch_channel_test_flag(session->channel, CF_VIDEO_WRITING)) {
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq vid_params %dx%d->w:%d h:%d \n", smh->vid_params.d_width, smh->vid_params.d_height, img->d_w, img->d_h);
 		smh->vid_params.d_width = img->d_w;
 		smh->vid_params.d_height = img->d_h;
 	}

@@ -1742,6 +1742,7 @@ static void *SWITCH_THREAD_FUNC file_read_thread_run(switch_thread_t *thread, vo
 		
 		if (switch_buffer_inuse(context->audio_buffer) > AUDIO_BUF_SEC * context->handle->samplerate * context->handle->channels * 2 &&
 			(!context->has_video || vid_frames > 5)) {
+			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq3 vid_frames:%d\n", vid_frames);
 			switch_yield(context->has_video ? 1000 : 10000);
 			continue;
 		}
@@ -1959,6 +1960,7 @@ GCC_DIAG_ON(deprecated-declarations)
 						context->vid_ready = 1;
 						switch_queue_push(context->eh.video_queue, img);
 						context->last_vid_push = switch_time_now();
+						switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq4 vid_frames:%d\n", vid_frames);
 					} else {
 						switch_img_free(&img);
 					}
@@ -2216,7 +2218,7 @@ static switch_status_t av_file_open(switch_file_handle_t *handle, const char *pa
 			switch_queue_create(&context->eh.video_queue, context->read_fps, handle->memory_pool);
 			context->no_video_decode = handle->params && switch_true(switch_event_get_header(handle->params, "no_video_decode"));
 			if (context->no_video_decode) {
-				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Opening video in no decode mode\n");
+				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Opening video in no decode mode %s\n", path);
 				switch_queue_create(&context->video_pkt_queue, 120 * 5, handle->memory_pool);
 			}
 			switch_mutex_init(&context->eh.mutex, SWITCH_MUTEX_NESTED, handle->memory_pool);
@@ -3049,6 +3051,8 @@ static switch_status_t no_video_decode_packets(switch_file_handle_t *handle, swi
 	status = switch_packetizer_read(context->packetizer, frame);
 	pts = av_rescale_q(pkt->pts, st->time_base, AV_TIME_BASE_Q);
 	frame->timestamp = pts * 9 / 100; // scale to sample 900000
+	
+	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq pts=%" SWITCH_INT64_T_FMT " status = %d size=%d\n", pts, status, pkt->size);
 	// switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "pts=%" SWITCH_INT64_T_FMT " status = %d\n", pts, status);
 
 	if (status == SWITCH_STATUS_SUCCESS) {
@@ -3092,6 +3096,8 @@ static switch_status_t av_file_read_video(switch_file_handle_t *handle, switch_f
 	int smaller_ts = context->read_fps;
 	AVCodecContext *c = NULL;
 	AVCodecParserContext *cp = NULL;
+
+	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "jzq2 av_file_read_video flags:%d read_paused:%d seek_ts:%ld\n", flags, context->read_paused, context->seek_ts);
 
 	if (!context->has_video) return SWITCH_STATUS_FALSE;
 
@@ -3266,22 +3272,24 @@ static switch_status_t av_file_read_video(switch_file_handle_t *handle, switch_f
 		}
 
 		if ((flags & SVR_BLOCK)) {
-			while (switch_micro_time_now() - mst->next_pts < -10000) {
-				// switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "yield, delta=%" SWITCH_INT64_T_FMT "\n", switch_micro_time_now() - mst->next_pts);
+			while (switch_micro_time_now() - mst->next_pts < -10000000) {
+				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "jzq2 yield, delta=%" SWITCH_INT64_T_FMT "\n", switch_micro_time_now() - mst->next_pts);
 				switch_yield(1000);
 			}
 			frame->img = img;
 		} else {
-			if (switch_micro_time_now() - mst->next_pts > -10000) {
+			if (switch_micro_time_now() - mst->next_pts > -10000000) {
 				frame->img = img;
 			} else {
 				switch_img_free(&context->last_img);
 				context->last_img = img;
+				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "jzq3285 SWITCH_STATUS_BREAK %ld %ld next_pts:%ld\n", switch_micro_time_now(), switch_time_now(), mst->next_pts);
 				return SWITCH_STATUS_BREAK;
 			}
 		}
 
 	} else {
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "jzq3291 SWITCH_STATUS_BREAK \n");
 		return SWITCH_STATUS_BREAK;
 	}
 

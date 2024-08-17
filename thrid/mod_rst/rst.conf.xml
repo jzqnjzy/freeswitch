@@ -1,0 +1,7 @@
+<configuration name="rst.conf" description="rst Configuration">
+  <settings>
+    <param name="udp-server-ip" value="127.0.0.1"/>
+    <param name="udp-server-port" value="9527"/> 
+    <param name="write-hex" value="false"/> 
+   </settings>
+</configuration>

@@ -1,0 +1,20 @@
+## 安装使用：
+
+1. 将 rst.conf.xml 拷贝到`/usr/local/freeswitch/conf/autoload_configs/rst.conf.xml`
+
+2. mod_rst.so 拷贝到`/usr/local/freeswitch/mod/mod_rst.so`
+
+3. 通这 fs_cli 中 `load mod_rst` 如无异常可以正常加载
+
+4. 后台启动 udp_server
+
+5. 在 freeswitch 的 dialplan 中配置路由
+
+`<action application="set" data="execute_on_answer='rst serverip serverport'"/>`
+如果是 fs 1.10.10 版本，要去掉单引号，否则总提示找不到application
+`<action application="set" data="execute_on_answer=rst serverip serverport"/>`
+如不指定 serverip、serverport 那么自动使用默认的 ip/port。
+
+6. 如果是 esl 连接，那么在 inbound 模式下中调用时使用 `uuid_rst uuid serverip serverport`即可
+
+7. 如果是要将`<param name="write-hex" value="true"/>` 配为 true,那么需要先创建一个`mkdir /opt/nway/records/ -p`

@@ -222,6 +222,7 @@ SWITCH_DECLARE(switch_status_t) switch_packetizer_feed(switch_packetizer_t *pack
 	memset(context->nalus, 0, MAX_NALUS * sizeof(our_h264_nalu_t));
 	context->nalu_current_index = 0;
 
+	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "jzq type:%d size = %u %x %x %x %x %x\n", context->type, size, *p, *(p+1), *(p+2), *(p+3), *(p+4));
 	// switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "size = %u %x %x %x %x %x\n", size, *p, *(p+1), *(p+2), *(p+3), *(p+4));
 
 	if (context->type == SPT_H264_SIZED_BITSTREAM) {
@@ -307,8 +308,8 @@ SWITCH_DECLARE(switch_status_t) switch_packetizer_read(switch_packetizer_t *pack
 	nri = nalu_hdr & 0x60;
 
 	if (real_slice_size > slice_size) real_slice_size = slice_size;
-	if (frame->datalen < slice_size) {
-		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "frame buffer too small %u < %u\n", frame->datalen, slice_size);
+	if (frame->buflen < slice_size) {
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "frame buffer too small %u < %u\n", frame->buflen, slice_size);
 		return SWITCH_STATUS_FALSE;
 	}
 
