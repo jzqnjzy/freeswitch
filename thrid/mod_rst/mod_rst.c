@@ -1,11 +1,4 @@
-/*
-auth:上海宁卫信息技术有限公司
-License: GPL
-Description: this is a module of FreeSWITCH，and it send any udp stream to other udp server
-*/
-
 #include "mod_rst.h"
-#include "nway_log.h"
 SWITCH_MODULE_LOAD_FUNCTION(mod_rst_load);
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_rst_shutdown);
 SWITCH_MODULE_DEFINITION(mod_rst, mod_rst_load, mod_rst_shutdown, NULL);
@@ -241,7 +234,7 @@ static switch_bool_t nway_rst_callback(switch_media_bug_t *bug, void *user_data,
 				log_err("open caller file hex failed");
 			}
 		}
-		sprintf(cmd, "%s:%s:%s:%s\0", INV, rh->uuid, rh->caller, rh->callee);
+		sprintf(cmd, "%s:%s:%s:%s:HEADEREND", INV, rh->uuid, rh->caller, rh->callee);
 		log_ntc(cmd);
 
 		nway_send_to(rh, cmd, strlen(cmd));
@@ -254,46 +247,28 @@ static switch_bool_t nway_rst_callback(switch_media_bug_t *bug, void *user_data,
 	break;
 	case SWITCH_ABC_TYPE_TAP_NATIVE_READ:
 	{
-
 		switch_frame_t *rframe = NULL;
 
 		rframe = switch_core_media_bug_get_native_read_frame(bug);
 		switch_size_t len;
 
-		char payload[20] = {0};
 		char cmd[2048] = {0};
 
 		raw_codec = switch_core_session_get_read_codec(session);
-    		if (raw_codec) {
-        		uint32_t read_sample_rate = raw_codec->implementation->samples_per_second;
-        		uint32_t read_channels = raw_codec->implementation->number_of_channels;
-        		const char *read_codec_name = raw_codec->implementation->iananame;
+		uint32_t read_sample_rate = raw_codec->implementation->samples_per_second;
+		uint32_t read_channels = raw_codec->implementation->number_of_channels;
+		const char *read_codec_name = raw_codec->implementation->iananame;
 
-        		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq media-bug pt:%d Read codec: %s, Sample rate: %u Hz, Channels: %u\n", raw_codec->agreed_pt, read_codec_name, read_sample_rate, read_channels);
-    		}
-		if (raw_codec->agreed_pt == 8)
-		{
-			// alaw
-			strcpy(payload, "08");
-			len = 160;
-		}
-		else if (raw_codec->agreed_pt == 0)
-		{
-			// ulaw
-			strcpy(payload, "00");
-			len = 160;
-		}
-		else if (raw_codec->agreed_pt == 10)
-		{
-			// pcm
-			strcpy(payload, "10");
-			len = 160 * 2;
-		}
-		sprintf(cmd, "DATA:%s:R:%s:%d:", rh->uuid, payload, len);
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "jzq media-bug pt:%d Read codec: %s, Sample rate: %u Hz, Channels: %u\n", 
+		raw_codec->agreed_pt, read_codec_name, read_sample_rate, read_channels);
+		
+		// DATA:R:uuid:caller:callee:pt:codec_name:sameple:channels:len:HEADEREND:data
+		sprintf(cmd, "DATA:R:%s:%s:%s:%d:%s:%d:%d:%d:HEADEREND:", rh->uuid, rh->caller, rh->callee, raw_codec->agreed_pt, read_codec_name, read_sample_rate, read_channels, rframe->samples);
 		len = strlen(cmd);
 		char *f = cmd;
 		if (globals.write_hex)
 			InsertHexFile(rframe->data, rframe->samples, rh->caller_file_hex);
+
 		// memcpy(cmd + len, rframe->data, (switch_size_t)rframe->datalen);
 		memcpy(cmd + len, rframe->data, rframe->samples);
 		len = len + rframe->samples;
@@ -302,39 +277,39 @@ static switch_bool_t nway_rst_callback(switch_media_bug_t *bug, void *user_data,
 	break;
 	case SWITCH_ABC_TYPE_TAP_NATIVE_WRITE:
 	{
-		switch_frame_t *wframe = switch_core_media_bug_get_native_write_frame(bug);
-		switch_size_t len;
+		// switch_frame_t *wframe = switch_core_media_bug_get_native_write_frame(bug);
+		// switch_size_t len;
 
-		char payload[2] = {0};
-		char cmd[1024] = {0};
+		// char payload[2] = {0};
+		// char cmd[1024] = {0};
 
-		raw_codec = switch_core_session_get_read_codec(session);
-		if (raw_codec->agreed_pt == 8)
-		{
-			// alaw
-			strcpy(payload, "08");
-			len = 160;
-		}
-		else if (raw_codec->agreed_pt == 0)
-		{
-			// ulaw
-			strcpy(payload, "00");
-			len = 160;
-		}
-		else if (raw_codec->agreed_pt == 10)
-		{
-			// pcm
-			strcpy(payload, "10");
-			len = 160 * 2;
-		}
-		sprintf(cmd, "DATA:%s:W:%s:%d:", rh->uuid, payload, len);
-		len = strlen(cmd);
-		char *f = cmd;
-		memcpy(cmd + len, wframe->data, wframe->samples);
-		if (globals.write_hex)
-			InsertHexFile(wframe->data, wframe->datalen, rh->callee_file_hex);
-		len = len + wframe->samples;
-		nway_send_to(rh, cmd, len);
+		// raw_codec = switch_core_session_get_read_codec(session);
+		// if (raw_codec->agreed_pt == 8)
+		// {
+		// 	// alaw
+		// 	strcpy(payload, "08");
+		// 	len = 160;
+		// }
+		// else if (raw_codec->agreed_pt == 0)
+		// {
+		// 	// ulaw
+		// 	strcpy(payload, "00");
+		// 	len = 160;
+		// }
+		// else if (raw_codec->agreed_pt == 10)
+		// {
+		// 	// pcm
+		// 	strcpy(payload, "10");
+		// 	len = 160 * 2;
+		// }
+		// sprintf(cmd, "DATA:%s:W:%s:%d:", rh->uuid, payload, len);
+		// len = strlen(cmd);
+		// char *f = cmd;
+		// memcpy(cmd + len, wframe->data, wframe->samples);
+		// if (globals.write_hex)
+		// 	InsertHexFile(wframe->data, wframe->datalen, rh->callee_file_hex);
+		// len = len + wframe->samples;
+		// nway_send_to(rh, cmd, len);
 	}
 
 	break;
@@ -342,7 +317,7 @@ static switch_bool_t nway_rst_callback(switch_media_bug_t *bug, void *user_data,
 	{
 
 		char cmd[1024] = {0};
-		sprintf(cmd, "BYE :%s\0", rh->uuid);
+		sprintf(cmd, "BYE:%s:HEADEREND", rh->uuid);
 		log_ntc(cmd);
 		nway_send_to(rh, cmd, strlen(cmd));
 
